@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    branches: [ backup-config ]
+
+  pull_request:
+    branches: [ backup-config ]
+
+permissions:
+  contents: read
+  id-token: write # Allow the workflow to create a JWT for AWS auth
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    env:
+      RELEASE_VERSION: "dev-$(git rev-parse --short HEAD)"
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v3.3.0
+        with:
+          go-version: 1.21
+
+      - name: Build
+        run: go build -o bin/consul-snapshot
+
+      - name: Verify
+        run: bin/consul-snapshot -h
+
+      - name: Release vars
+        run: |
+          echo "RELEASE_FILENAME=consul-snapshot-${{ env.RELEASE_VERSION }}-linux-amd64.tar.gz" >> $GITHUB_ENV
+
+      - name: Compress
+        run: tar czf ${{ env.RELEASE_FILENAME }} bin/consul-snapshot
+
+      # This action currently generates a warning due to using deprecated features.
+      # https://github.com/aws-actions/configure-aws-credentials/issues/521 tracks the new behaviour.
+      - name: Configure AWS Credentials for upload
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ROLE_TO_ASSUME }}
+          role-session-name: consul-snapshot-build
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Copy Binary and Job to S3
+        run: |
+          aws s3 cp ${{ env.RELEASE_FILENAME }} s3://${{ secrets.STORAGE_BUCKET_NAME }}/consul-snapshot/${{ env.RELEASE_FILENAME }}
+          echo '### Release Info' >> $GITHUB_STEP_SUMMARY
+          echo '- `Version: ${{ env.RELEASE_VERSION }}`' >> $GITHUB_STEP_SUMMARY
