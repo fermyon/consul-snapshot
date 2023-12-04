@@ -117,3 +117,39 @@ func TestParseConfig(t *testing.T) {
 		t.Error("Hostname not being set correctly!")
 	}
 }
+
+func TestEnableBackupKeys(t *testing.T) {
+	os.Clearenv()
+	os.Setenv("CONSUL_SNAPSHOT_ENABLE_KEYS_BACKUP", "false")
+	os.Setenv("CONSUL_SNAPSHOT_ENABLE_PQ_BACKUP", "false")
+	os.Setenv("CONSUL_SNAPSHOT_ENABLE_ACL_BACKUP", "false")
+
+	conf := ParseConfig(true)
+	if *conf.EnableKeysBackup {
+		t.Error("failed to disable keys backup")
+	}
+
+	if *conf.EnablePQBackup {
+		t.Error("failed to disable pq backup")
+	}
+
+	if *conf.EnableACLBackup {
+		t.Error("failed to disable acl backup")
+	}
+
+	// try enabling keys backup
+	os.Setenv("CONSUL_SNAPSHOT_ENABLE_KEYS_BACKUP", "true")
+
+	conf = ParseConfig(true)
+	if !*conf.EnableKeysBackup {
+		t.Error("failed to enable keys backup")
+	}
+
+	if *conf.EnablePQBackup {
+		t.Error("failed to disable pq backup")
+	}
+
+	if *conf.EnableACLBackup {
+		t.Error("failed to disable acl backup")
+	}
+}

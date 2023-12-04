@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/context"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"golang.org/x/net/context"
 
 	"cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go/aws"
@@ -43,6 +44,10 @@ type Backup struct {
 	PQJSONData       []byte
 	RemoteFilePath   string
 	StartTime        int64
+
+	EnableKeysBackup *bool
+	EnablePQBackup   *bool
+	EnableACLBackup  *bool
 }
 
 // Meta holds the meta struct to write inside the compressed data
@@ -115,18 +120,38 @@ func doWork(conf *config.Config, client *consul.Consul) error {
 
 	log.Printf("[INFO] Starting Backup At: %s", startString)
 
-	log.Print("[INFO] Listing keys from consul")
-	b.Client.ListKeys()
+	if b.Config.EnableKeysBackup == nil || *b.Config.EnableKeysBackup {
+		log.Print("[INFO] Listing keys from consul")
+		b.Client.ListKeys()
+	} else {
+		log.Print("[INFO] keys backup is disabled")
+		b.Client.KeyData = consulapi.KVPairs{}
+		b.Client.KeyDataLen = 0
+	}
+
 	log.Printf("[INFO] Converting %v keys to JSON", b.Client.KeyDataLen)
 	b.KeysToJSON()
 
-	log.Print("[INFO] Listing Prepared Queries from consul")
-	b.Client.ListPQs()
+	if b.Config.EnablePQBackup == nil || *b.Config.EnablePQBackup {
+		log.Print("[INFO] Listing Prepared Queries from consul")
+		b.Client.ListPQs()
+
+	} else {
+		log.Print("[INFO] Prepared Queries backup is disabled")
+		b.Client.PQData = []*consulapi.PreparedQueryDefinition{}
+		b.Client.PQDataLen = 0
+	}
 	log.Printf("[INFO] Converting %v keys to JSON", b.Client.PQDataLen)
 	b.PQsToJSON()
 
-	log.Print("[INFO] Listing ACLs from consul")
-	b.Client.ListACLs()
+	if b.Config.EnableACLBackup == nil || *b.Config.EnableACLBackup {
+		log.Print("[INFO] Listing ACLs from consul")
+		b.Client.ListACLs()
+	} else {
+		log.Print("[INFO] ACLs backup is disabled")
+		b.Client.ACLData = []*consulapi.ACLEntry{}
+		b.Client.ACLDataLen = 0
+	}
 	log.Printf("[INFO] Converting %v ACLs to JSON", b.Client.ACLDataLen)
 	b.ACLsToJSON()
 

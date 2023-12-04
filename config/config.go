@@ -26,6 +26,10 @@ type Config struct {
 	ObjectPrefix           string
 	S3ServerSideEncryption string
 	S3KmsKeyID             string
+
+	EnableKeysBackup *bool
+	EnablePQBackup   *bool
+	EnableACLBackup  *bool
 }
 
 // When starting, just set the hostname
@@ -61,6 +65,10 @@ func setEnvVars(conf *Config, tests bool) error {
 	conf.ObjectPrefix = os.Getenv("CONSUL_SNAPSHOT_UPLOAD_PREFIX")
 	conf.S3ServerSideEncryption = os.Getenv("CONSUL_SNAPSHOT_S3_SSE")
 	conf.S3KmsKeyID = os.Getenv("CONSUL_SNAPSHOT_S3_SSE_KMS_KEY_ID")
+
+	conf.EnableKeysBackup = getFromEnv("CONSUL_SNAPSHOT_ENABLE_KEYS_BACKUP", true)
+	conf.EnablePQBackup = getFromEnv("CONSUL_SNAPSHOT_ENABLE_PQ_BACKUP", true)
+	conf.EnableACLBackup = getFromEnv("CONSUL_SNAPSHOT_ENABLE_ACL_BACKUP", true)
 
 	// if the environment variable isn't set, just set the dir to /tmp
 	if conf.TmpDir == "" {
@@ -118,4 +126,20 @@ func ParseConfig(tests bool) *Config {
 
 	conf.Hostname = hostname
 	return conf
+}
+
+func getFromEnv(key string, defaultVal bool) *bool {
+	trueP := true
+	falseP := false
+
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return &defaultVal
+	}
+
+	if value == "true" {
+		return &trueP
+	}
+
+	return &falseP
 }
